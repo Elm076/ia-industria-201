@@ -20,12 +20,34 @@ print(f"fotos={len(fotos)} defectuosas={int(fotos['defecto'].sum())}  tamaño de
 
 # --- PASO 2: convertir una foto en números -------------------------------------
 # (pega aquí el bloque del paso 2)
+def a_numeros(ruta):
+    gris = Image.open(ruta).convert("L").resize((LADO, LADO))     # gris y más pequeña
+    return np.asarray(gris, dtype=np.float32) / 255.0             # cada punto: de 0 (negro) a 1 (blanco)
+
+tabla = a_numeros(fotos["ruta"][0])
+print(f"una foto son {tabla.shape[0]} × {tabla.shape[1]} = {tabla.size} números")
+print("fila central:", np.round(tabla[LADO // 2], 2))
 
 # --- PASO 3: preparar todas las fotos ------------------------------------------
 # (pega aquí el bloque del paso 3)
+X = np.stack([a_numeros(ruta).reshape(-1) for ruta in fotos["ruta"]])   # cada foto, en una fila
+y = fotos["defecto"].to_numpy()
+print(f"tabla de entrada: {X.shape[0]} fotos × {X.shape[1]} puntos")
 
 # --- PASO 4: entrenar y examinar -----------------------------------------------
 # (pega aquí el bloque del paso 4)
+buenas, malas = np.where(y == 0)[0], np.where(y == 1)[0]
+n_b, n_m = int(len(buenas) * 0.7), int(len(malas) * 0.7)
+ent = np.concatenate([buenas[:n_b], malas[:n_m]])                # 70 % de cada clase
+exa = np.concatenate([buenas[n_b:], malas[n_m:]])                # 30 % de cada clase
+modelo = LogisticRegression(max_iter=400).fit(X[ent], y[ent])
+acierto = (modelo.predict(X[exa]) == y[exa]).mean()
+print(f"entrenar={len(ent)} fotos  examen={len(exa)} fotos  acierto en examen={acierto:.2f}")
+
 
 # --- PASO 5: ver dónde se fija el modelo ---------------------------------------
 # (pega aquí el bloque del paso 5)
+pesos = modelo.coef_[0].reshape(LADO, LADO)
+corte = np.abs(pesos).max() / 3
+for fila in pesos:
+    print("".join("#" if p > corte else "." if p < -corte else " " for p in fila))
